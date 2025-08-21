@@ -83,7 +83,7 @@ const MyBookings = () => {
               {!item.isPaid && (
                 <Link
                   to={item.paymentLink}
-                  className='bg-primary px-4 py-1.4 mb-3 text-sm rounded-full font-medium cursor-pointer'
+                  className='bg-primary px-4 py-1.5 mb-3 text-sm rounded-full font-medium cursor-pointer whitespace-nowrap'
                 >
                   Pay Now
                 </Link>
