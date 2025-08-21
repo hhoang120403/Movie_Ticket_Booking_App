@@ -50,6 +50,7 @@ export interface Booking {
   amount: number;
   bookedSeats: string[];
   isPaid: boolean;
+  paymentLink: string;
 }
 
 export interface ActiveShow {

@@ -5,8 +5,8 @@ import BlurCircle from '../components/BlurCircle';
 import { dateFormat, timeFormat } from '../lib/timeFormat';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import api from '../lib/axiosConfig';
-import toast from 'react-hot-toast';
 import type { BookingsResponse } from '../types/apiResponseTypes';
+import { Link } from 'react-router-dom';
 
 const MyBookings = () => {
   const currency = '$';
@@ -19,7 +19,6 @@ const MyBookings = () => {
   useEffect(() => {
     const getMyBookings = async () => {
       try {
-        if (!user) return toast.error('Please login to proceed');
         const token = await getToken();
 
         const { data } = await api.get<BookingsResponse>('/api/user/bookings', {
@@ -38,7 +37,9 @@ const MyBookings = () => {
       }
     };
 
-    getMyBookings();
+    if (user) {
+      getMyBookings();
+    }
   }, [user, getToken]);
 
   return !isLoading ? (
@@ -80,9 +81,12 @@ const MyBookings = () => {
                 {item.amount}
               </p>
               {!item.isPaid && (
-                <button className='bg-primary px-4 py-1.4 mb-3 text-sm rounded-full font-medium cursor-pointer'>
+                <Link
+                  to={item.paymentLink}
+                  className='bg-primary px-4 py-1.4 mb-3 text-sm rounded-full font-medium cursor-pointer'
+                >
                   Pay Now
-                </button>
+                </Link>
               )}
             </div>
             <div className='text-sm'>
