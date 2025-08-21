@@ -1,38 +1,41 @@
 import { useEffect, useState } from 'react';
-import { dummyShowsData } from '../../assets/assets';
 import type { ActiveShow } from '../../types/types';
 import Loading from '../../components/Loading';
 import Title from '../../components/admin/Title';
 import { dateFormat } from '../../lib/timeFormat';
+import { useAuth, useUser } from '@clerk/clerk-react';
+import api from '../../lib/axiosConfig';
+import type { ListShowResponse } from '../../types/apiResponseTypes';
 
 const ListShows = () => {
   const [shows, setShows] = useState<ActiveShow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const { getToken } = useAuth();
+  const { user } = useUser();
+
   useEffect(() => {
     const getAllShows = async () => {
       try {
-        setShows([
+        const { data } = await api.get<ListShowResponse>(
+          '/api/admin/all-shows',
           {
-            _id: '683682072b5989c29fc6dc2a',
-            movie: dummyShowsData[0],
-            showDateTime: '2025-06-30T02:30:00.000Z',
-            showPrice: 59,
-            occupiedSeats: {
-              A1: 'user_1',
-              B1: 'user_2',
-              C1: 'user_3',
-            },
-          },
-        ]);
-        setIsLoading(false);
+            headers: { Authorization: `Bearer ${await getToken()}` },
+          }
+        );
+
+        setShows(data.shows);
       } catch (error) {
         console.error(error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    getAllShows();
-  }, []);
+    if (user) {
+      getAllShows();
+    }
+  }, [user]);
 
   return !isLoading ? (
     <>

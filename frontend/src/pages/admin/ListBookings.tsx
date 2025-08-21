@@ -1,26 +1,43 @@
 import { useEffect, useState } from 'react';
 import type { Booking } from '../../types/types';
-import { dummyBookingData } from '../../assets/assets';
 import Loading from '../../components/Loading';
 import Title from '../../components/admin/Title';
 import { dateFormat } from '../../lib/timeFormat';
+import { useAuth, useUser } from '@clerk/clerk-react';
+import api from '../../lib/axiosConfig';
+import type { BookingsResponse } from '../../types/apiResponseTypes';
 
 const ListBookings = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const { getToken } = useAuth();
+  const { user } = useUser();
+
   useEffect(() => {
     const getAllBookings = async () => {
       try {
-        setBookings(dummyBookingData);
-        setIsLoading(false);
+        const { data } = await api.get<BookingsResponse>(
+          '/api/admin/all-bookings',
+          {
+            headers: { Authorization: `Bearer ${await getToken()}` },
+          }
+        );
+
+        if (data.success) {
+          setBookings(data.bookings);
+        }
       } catch (error) {
         console.error(error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    getAllBookings();
-  }, []);
+    if (user) {
+      getAllBookings();
+    }
+  }, [user]);
 
   return !isLoading ? (
     <>

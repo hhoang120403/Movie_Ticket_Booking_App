@@ -32,7 +32,7 @@ export interface ShowTime {
 
 export type DateTimeData = Record<string, ShowTime[]>;
 
-interface Show {
+export interface Show {
   _id: string;
   movie: Movie;
   showDateTime: string;

@@ -6,12 +6,15 @@ import {
   UserIcon,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { dummyDashboardData } from '../../assets/assets';
 import type { DashboardData } from '../../types/types';
 import Loading from '../../components/Loading';
 import Title from '../../components/admin/Title';
 import BlurCircle from '../../components/BlurCircle';
 import { dateFormat } from '../../lib/timeFormat';
+import { useAuth, useUser } from '@clerk/clerk-react';
+import api from '../../lib/axiosConfig';
+import type { DashboardResponse } from '../../types/apiResponseTypes';
+import toast from 'react-hot-toast';
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData>({
@@ -20,6 +23,9 @@ const Dashboard = () => {
     activeShows: [],
     totalUser: 0,
   });
+
+  const { getToken } = useAuth();
+  const { user } = useUser();
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -48,12 +54,31 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      setDashboardData(dummyDashboardData);
-      setIsLoading(false);
+      try {
+        const { data } = await api.get<DashboardResponse>(
+          '/api/admin/dashboard',
+          {
+            headers: { Authorization: `Bearer ${await getToken()}` },
+          }
+        );
+
+        if (data.success) {
+          setDashboardData(data.dashboardData);
+        } else {
+          toast.error(data.message || 'Fetch dashboard data failed.');
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        toast.error('Error fetching dashboard data');
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    fetchDashboardData();
-  }, []);
+    if (user) {
+      fetchDashboardData();
+    }
+  }, [user]);
 
   return !isLoading ? (
     <>
@@ -85,7 +110,10 @@ const Dashboard = () => {
             className='w-55 rounded-lg overflow-hidden h-full pb-3 bg-primary/10 border border-primary/20 hover:-translate-y-1 transition duration-300'
           >
             <img
-              src={show.movie.poster_path}
+              src={
+                import.meta.env.VITE_TMDB_IMAGE_BASE_URL +
+                show.movie.poster_path
+              }
               className='h-60 w-full object-cover'
             />
             <p className='font-medium p-2 truncate'>{show.movie.title}</p>

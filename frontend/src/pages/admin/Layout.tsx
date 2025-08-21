@@ -1,9 +1,23 @@
 import { Outlet } from 'react-router-dom';
 import AdminNavbar from '../../components/admin/AdminNavbar';
 import AdminSidebar from '../../components/admin/AdminSidebar';
+import { useAuth } from '@clerk/clerk-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchIsAdmin } from '../../context/admin/adminSlice';
+import { useEffect } from 'react';
+import type { AppDispatch, RootState } from '../../context/store';
+import Loading from '../../components/Loading';
 
 const Layout = () => {
-  return (
+  const dispatch = useDispatch<AppDispatch>();
+  const { isAdmin } = useSelector((state: RootState) => state.admin);
+  const { getToken } = useAuth();
+
+  useEffect(() => {
+    dispatch(fetchIsAdmin({ getToken }));
+  }, [getToken, dispatch]);
+
+  return isAdmin ? (
     <>
       <AdminNavbar />
       <div className='flex'>
@@ -13,6 +27,8 @@ const Layout = () => {
         </div>
       </div>
     </>
+  ) : (
+    <Loading />
   );
 };
 export default Layout;

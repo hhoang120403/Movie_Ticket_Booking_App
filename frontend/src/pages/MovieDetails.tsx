@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { DateTimeData, Movie } from '../types/types';
-import { dummyDateTimeData, dummyShowsData } from '../assets/assets';
 import BlurCircle from '../components/BlurCircle';
 import { Heart, PlayCircleIcon, StarIcon } from 'lucide-react';
 import { timeFormat } from '../lib/timeFormat';
 import DateSelect from '../components/DateSelect';
 import MovieCard from '../components/MovieCard';
 import Loading from '../components/Loading';
+import api from '../lib/axiosConfig';
+import type { ApiResponse, ShowResponse } from '../types/apiResponseTypes';
+import { useDispatch, useSelector } from 'react-redux';
+import type { AppDispatch, RootState } from '../context/store';
+import { useAuth, useUser } from '@clerk/clerk-react';
+import toast from 'react-hot-toast';
+import { fetchFavoriteMovies } from '../context/favorites/favoritesSlice';
 
 interface Show {
   movie?: Movie;
@@ -19,26 +25,70 @@ const MovieDetails = () => {
   const { id } = useParams();
   const [show, setShow] = useState<Show | null>(null);
 
+  const { user } = useUser();
+  const { getToken } = useAuth();
+  const dispatch = useDispatch<AppDispatch>();
+  const { shows } = useSelector((state: RootState) => state.shows);
+  const { movies: favoriteMovies } = useSelector(
+    (state: RootState) => state.favorites
+  );
+
+  const isFavoriteMovie = favoriteMovies.find((movie) => movie._id === id);
+
   useEffect(() => {
     const getShow = async () => {
-      const movie = dummyShowsData.find((show) => show._id === id);
+      try {
+        if (!user) return toast.error('Please login to proceed');
 
-      if (movie) {
-        setShow({
-          movie,
-          dateTime: dummyDateTimeData,
-        });
+        const { data } = await api.get<ShowResponse>(`/api/show/${id}`);
+
+        if (data.success) {
+          setShow({
+            movie: data.movie,
+            dateTime: data.dateTime,
+          });
+        }
+      } catch (error) {
+        console.log('Failed to fetch movie details', error);
       }
     };
 
     getShow();
   }, [id]);
 
+  const handleFavorite = async () => {
+    try {
+      if (!user) return toast.error('Please login to proceed');
+      const token = await getToken();
+
+      const { data } = await api.post<ApiResponse>(
+        '/api/user/update-favorite',
+        {
+          movieId: id,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (data.success) {
+        await dispatch(fetchFavoriteMovies({ getToken }));
+        toast.success(data.message || 'Fetch favorites movies successfully');
+      }
+    } catch (error) {
+      console.log('Failed to fetch favorites movies', error);
+    }
+  };
+
   return show ? (
     <div className='px-6 md:px-16 lg:px-40 pt-30 md:pt-50'>
       <div className='flex flex-col md:flex-row gap-8 max-w-6xl mx-auto'>
         <img
-          src={show.movie?.poster_path}
+          src={
+            import.meta.env.VITE_TMDB_IMAGE_BASE_URL + show.movie?.poster_path
+          }
           alt=''
           className='max-md:mx-auto rounded-xl h-104 max-w-70 object-cover'
         />
@@ -72,8 +122,15 @@ const MovieDetails = () => {
             >
               Buy Tickets
             </a>
-            <button className='bg-gray-700 p-2.5 rounded-full transition cursor-pointer active:scale-95'>
-              <Heart className={`w-5 h-5`} />
+            <button
+              className='bg-gray-700 p-2.5 rounded-full transition cursor-pointer active:scale-95'
+              onClick={handleFavorite}
+            >
+              <Heart
+                className={`w-5 h-5 ${
+                  isFavoriteMovie ? 'fill-primary text-primary' : ''
+                }`}
+              />
             </button>
           </div>
         </div>
@@ -85,7 +142,9 @@ const MovieDetails = () => {
           {show.movie?.casts.slice(0, 12).map((cast, index) => (
             <div key={index} className='flex flex-col items-center text-center'>
               <img
-                src={cast.profile_path}
+                src={
+                  import.meta.env.VITE_TMDB_IMAGE_BASE_URL + cast.profile_path
+                }
                 alt=''
                 className='rounded-full h-20 md:h-20 aspect-square object-cover'
               />
@@ -99,9 +158,12 @@ const MovieDetails = () => {
 
       <p className='text-lg font-medium mt-20 mb-8'>You May Also Like</p>
       <div className='flex flex-wrap max-sm:justify-center gap-8'>
-        {dummyShowsData.slice(0, 4).map((movie, index) => (
-          <MovieCard key={index} movie={movie} />
-        ))}
+        {shows
+          .filter((movie) => movie._id !== id)
+          .slice(0, 4)
+          .map((movie, index) => (
+            <MovieCard key={index} movie={movie} />
+          ))}
       </div>
       <div className='flex justify-center mt-20'>
         <button

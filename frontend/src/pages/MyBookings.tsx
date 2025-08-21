@@ -1,23 +1,45 @@
 import { useEffect, useState } from 'react';
-import { dummyBookingData } from '../assets/assets';
 import { type Booking } from '../types/types';
 import Loading from '../components/Loading';
 import BlurCircle from '../components/BlurCircle';
 import { dateFormat, timeFormat } from '../lib/timeFormat';
+import { useAuth, useUser } from '@clerk/clerk-react';
+import api from '../lib/axiosConfig';
+import toast from 'react-hot-toast';
+import type { BookingsResponse } from '../types/apiResponseTypes';
 
 const MyBookings = () => {
   const currency = '$';
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const { user } = useUser();
+  const { getToken } = useAuth();
+
   useEffect(() => {
     const getMyBookings = async () => {
-      setBookings(dummyBookingData);
-      setIsLoading(false);
+      try {
+        if (!user) return toast.error('Please login to proceed');
+        const token = await getToken();
+
+        const { data } = await api.get<BookingsResponse>('/api/user/bookings', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (data.success) {
+          setBookings(data.bookings);
+        }
+      } catch (error) {
+        console.log('Failed to fetch bookings', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     getMyBookings();
-  }, []);
+  }, [user, getToken]);
 
   return !isLoading ? (
     <div className='relative px-6 md:px-16 lg:px-40 pt-30 md:pt-40 min-h-[80vh]'>
@@ -33,7 +55,10 @@ const MyBookings = () => {
         >
           <div className='flex flex-col md:flex-row'>
             <img
-              src={item.show.movie.poster_path}
+              src={
+                import.meta.env.VITE_TMDB_IMAGE_BASE_URL +
+                item.show.movie.poster_path
+              }
               alt=''
               className='md:max-w-45 aspect-video h-auto object-cover object-bottom rounded'
             />

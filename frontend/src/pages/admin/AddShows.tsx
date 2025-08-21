@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 import type { Movie } from '../../types/types';
-import { dummyShowsData } from '../../assets/assets';
 import Loading from '../../components/Loading';
 import Title from '../../components/admin/Title';
 import { CheckIcon, DeleteIcon, StarIcon } from 'lucide-react';
 import { voteConvert } from '../../lib/voteConvert';
+import { useAuth, useUser } from '@clerk/clerk-react';
+import api from '../../lib/axiosConfig';
+import type {
+  ApiResponse,
+  NowPlayingMovieResponse,
+} from '../../types/apiResponseTypes';
+import toast from 'react-hot-toast';
 
 interface DateTimeSelection {
   [date: string]: string[];
@@ -18,17 +24,76 @@ const AddShows = () => {
   );
   const [dateTimeInput, setDateTimeInput] = useState('');
   const [showPrice, setShowPrice] = useState('');
+  const [addingShow, setAddingShow] = useState(false);
+
+  const { getToken } = useAuth();
+  const { user } = useUser();
 
   useEffect(() => {
     const fetchNowPlayingMovies = async () => {
-      setNowPlayingMovies(dummyShowsData);
+      const { data } = await api.get<NowPlayingMovieResponse>(
+        '/api/show/now-playing',
+        {
+          headers: { Authorization: `Bearer ${await getToken()}` },
+        }
+      );
+
+      if (data.success) {
+        setNowPlayingMovies(data.movies);
+      }
     };
 
-    fetchNowPlayingMovies();
-  }, []);
+    if (user) {
+      fetchNowPlayingMovies();
+    }
+  }, [user]);
+
+  const handleSubmit = async () => {
+    try {
+      setAddingShow(true);
+
+      if (
+        !selectedMovie ||
+        Object.keys(dateTimeSelection).length === 0 ||
+        !showPrice
+      ) {
+        return toast('Missing required fields');
+      }
+
+      const showsInput = Object.entries(dateTimeSelection).map(
+        ([date, time]) => ({ date, time })
+      );
+
+      const payload = {
+        movieId: selectedMovie,
+        showsInput,
+        showPrice: Number(showPrice),
+      };
+
+      const { data } = await api.post<ApiResponse>('/api/show/add', payload, {
+        headers: {
+          Authorization: `Bearer ${await getToken()}`,
+        },
+      });
+
+      if (data.success) {
+        toast.success(data.message || 'Show added successfully');
+        setSelectedMovie(null);
+        setDateTimeSelection({});
+        setShowPrice('');
+      } else {
+        toast.error(data.message || 'Error add show');
+      }
+    } catch (error) {
+      console.error('Adding show error', error);
+      toast.error('An error occurred. Please try again.');
+    } finally {
+      setAddingShow(false);
+    }
+  };
 
   const handleDateTimeAdd = () => {
-    if (!dateTimeInput) return;
+    if (!dateTimeInput) return toast.error('Missing add time');
     const [date, time] = dateTimeInput.split('T');
     if (!date || !time) return;
 
@@ -78,7 +143,9 @@ const AddShows = () => {
             >
               <div className='relative rounded-lg overflow-hidden'>
                 <img
-                  src={movie.poster_path}
+                  src={`${
+                    import.meta.env.VITE_TMDB_IMAGE_BASE_URL + movie.poster_path
+                  }`}
                   alt=''
                   className='w-full object-cover brightness-90'
                 />
@@ -171,8 +238,12 @@ const AddShows = () => {
         </div>
       )}
 
-      <button className='bg-primary text-white px-8 py-2 mt-6 rounded hover:bg-primary/90 transition-all cursor-pointer'>
-        Add Show
+      <button
+        className='bg-primary text-white px-8 py-2 mt-6 rounded hover:bg-primary/90 transition-all cursor-pointer'
+        onClick={handleSubmit}
+        disabled={addingShow}
+      >
+        {addingShow ? 'Adding...' : 'Add Show'}
       </button>
     </>
   ) : (
